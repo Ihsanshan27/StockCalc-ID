@@ -1,0 +1,24 @@
+{
+   "name": "learn-next",
+   "version": "1.0.0",
+   "description": "",
+   "main": "index.js",
+   "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "next lint",
+      "test": "echo \"Error: no test specified\" && exit 1"
+   },
+   "keywords": [],
+   "author": "",
+   "license": "ISC",
+   "type": "module",
+   "dependencies": {
+      "@supabase/ssr": "^0.8.0",
+      "@supabase/supabase-js": "^2.86.2",
+      "next": "^16.0.7",
+      "react": "^19.2.1",
+      "react-dom": "^19.2.1"
+   }
+}
