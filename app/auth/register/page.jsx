@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signUp } from '../../lib/supabase';
 
+// Set to 'false' to disable registration
+const REGISTRATION_ENABLED = process.env.NEXT_PUBLIC_REGISTRATION_ENABLED !== 'false';
+
 export default function RegisterPage() {
     const router = useRouter();
     const [formData, setFormData] = useState({
@@ -15,6 +18,26 @@ export default function RegisterPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    // If registration is disabled, show message
+    if (!REGISTRATION_ENABLED) {
+        return (
+            <div className="auth-page">
+                <div className="auth-container animate-slide-up">
+                    <div className="auth-header">
+                        <div className="auth-logo">🔒</div>
+                        <h1 className="auth-title">Registrasi Ditutup</h1>
+                        <p className="auth-subtitle">
+                            Pendaftaran akun baru tidak tersedia saat ini.
+                        </p>
+                    </div>
+                    <Link href="/auth/login" className="btn btn-primary w-full">
+                        🔐 Ke Halaman Login
+                    </Link>
+                </div>
+            </div>
+        );
+    }
 
     const handleChange = (e) => {
         const { name, value } = e.target;
