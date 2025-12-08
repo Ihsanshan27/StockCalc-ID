@@ -17,7 +17,9 @@ export default function Navbar() {
         { href: '/', label: 'Dashboard', icon: '📊' },
         { href: '/pl-calculator', label: 'P/L Calculator', icon: '🧮' },
         { href: '/ipo-tracker', label: 'IPO Tracker', icon: '🚀' },
+        { href: '/tools', label: 'Tools', icon: '🛠️' },
     ];
+
 
     const handleLogout = async () => {
         await signOut();

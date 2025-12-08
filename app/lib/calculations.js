@@ -278,3 +278,220 @@ export const formatDateInput = (dateString) => {
     const date = new Date(dateString);
     return date.toISOString().split('T')[0];
 };
+
+// ========================================
+// ARA/ARB Calculator
+// ========================================
+
+// Get price fraction (kelipatan harga) based on IDX rules
+export const getPriceFraction = (price) => {
+    if (price < 200) return 1;
+    if (price < 500) return 2;
+    if (price < 2000) return 5;
+    if (price < 5000) return 10;
+    return 25;
+};
+
+// Round price to valid fraction
+export const roundToFraction = (price, direction = 'nearest') => {
+    const fraction = getPriceFraction(price);
+    if (direction === 'up') {
+        return Math.ceil(price / fraction) * fraction;
+    } else if (direction === 'down') {
+        return Math.floor(price / fraction) * fraction;
+    }
+    return Math.round(price / fraction) * fraction;
+};
+
+// Calculate ARA (Auto Rejection Atas) and ARB (Auto Rejection Bawah)
+export const calculateARAARB = (price, type = 'symmetric') => {
+    if (!price || price <= 0) {
+        return { ara: 0, arb: 0, araPercent: 0, arbPercent: 0, priceFraction: 0 };
+    }
+
+    let araPercent, arbPercent;
+
+    // IDX rules based on price range
+    if (price < 50) {
+        // Untuk harga < Rp50: ±10% atau minimal perubahan Rp10
+        araPercent = 35;
+        arbPercent = 7;
+    } else if (price <= 200) {
+        // Symmetric: 35% up, 7% down (non-accelerated market)
+        araPercent = type === 'accelerated' ? 35 : 35;
+        arbPercent = type === 'accelerated' ? 7 : 7;
+    } else {
+        // Standard: 25% symmetric or 35%/7% asymmetric
+        if (type === 'symmetric') {
+            araPercent = 25;
+            arbPercent = 25;
+        } else if (type === 'asymmetric') {
+            araPercent = 35;
+            arbPercent = 7;
+        } else {
+            araPercent = 20;
+            arbPercent = 20;
+        }
+    }
+
+    const priceFraction = getPriceFraction(price);
+    const araRaw = price * (1 + araPercent / 100);
+    const arbRaw = price * (1 - arbPercent / 100);
+
+    const ara = roundToFraction(araRaw, 'down');
+    const arb = roundToFraction(arbRaw, 'up');
+
+    // Calculate actual percentage after rounding
+    const actualAraPercent = ((ara - price) / price) * 100;
+    const actualArbPercent = ((price - arb) / price) * 100;
+
+    return {
+        ara,
+        arb,
+        araPercent: actualAraPercent,
+        arbPercent: actualArbPercent,
+        araTargetPercent: araPercent,
+        arbTargetPercent: arbPercent,
+        priceFraction,
+        araGain: ara - price,
+        arbLoss: price - arb,
+    };
+};
+
+// Calculate multiple ARA days
+export const calculateMultipleARA = (price, days = 5, type = 'symmetric') => {
+    const results = [];
+    let currentPrice = price;
+
+    for (let i = 0; i < days; i++) {
+        const result = calculateARAARB(currentPrice, type);
+        results.push({
+            day: i + 1,
+            openPrice: currentPrice,
+            ara: result.ara,
+            arb: result.arb,
+            araPercent: result.araPercent,
+            arbPercent: result.arbPercent,
+        });
+        currentPrice = result.ara;
+    }
+
+    const totalGain = results[results.length - 1].ara - price;
+    const totalGainPercent = (totalGain / price) * 100;
+
+    return { results, totalGain, totalGainPercent };
+};
+
+// Calculate multiple ARB days
+export const calculateMultipleARB = (price, days = 5, type = 'symmetric') => {
+    const results = [];
+    let currentPrice = price;
+
+    for (let i = 0; i < days; i++) {
+        const result = calculateARAARB(currentPrice, type);
+        results.push({
+            day: i + 1,
+            openPrice: currentPrice,
+            ara: result.ara,
+            arb: result.arb,
+            araPercent: result.araPercent,
+            arbPercent: result.arbPercent,
+        });
+        currentPrice = result.arb;
+    }
+
+    const totalLoss = price - results[results.length - 1].arb;
+    const totalLossPercent = (totalLoss / price) * 100;
+
+    return { results, totalLoss, totalLossPercent };
+};
+
+// ========================================
+// Average Price Calculator
+// ========================================
+
+// Calculate weighted average price from multiple entries
+export const calculateWeightedAverage = (entries) => {
+    if (!entries || entries.length === 0) {
+        return {
+            avgPrice: 0,
+            totalLot: 0,
+            totalShares: 0,
+            totalValue: 0,
+        };
+    }
+
+    let totalValue = 0;
+    let totalShares = 0;
+
+    entries.forEach(entry => {
+        if (entry.price > 0 && entry.lot > 0) {
+            const shares = entry.lot * 100;
+            totalValue += entry.price * shares;
+            totalShares += shares;
+        }
+    });
+
+    const avgPrice = totalShares > 0 ? totalValue / totalShares : 0;
+    const totalLot = totalShares / 100;
+
+    return {
+        avgPrice: Math.round(avgPrice * 100) / 100, // Round to 2 decimals
+        totalLot,
+        totalShares,
+        totalValue,
+    };
+};
+
+// Add new entry and recalculate average
+export const addToAverage = (currentAvg, currentLot, newPrice, newLot) => {
+    const currentShares = currentLot * 100;
+    const newShares = newLot * 100;
+    const totalShares = currentShares + newShares;
+
+    const currentValue = currentAvg * currentShares;
+    const newValue = newPrice * newShares;
+    const totalValue = currentValue + newValue;
+
+    const newAvg = totalShares > 0 ? totalValue / totalShares : 0;
+
+    return {
+        avgPrice: Math.round(newAvg * 100) / 100,
+        totalLot: currentLot + newLot,
+        totalShares,
+        totalValue,
+        changePercent: currentAvg > 0 ? ((newAvg - currentAvg) / currentAvg) * 100 : 0,
+    };
+};
+
+// Calculate target price to average down
+export const calculateTargetAverageDown = (currentAvg, currentLot, targetAvg, maxLot = 1000) => {
+    if (targetAvg >= currentAvg) return null; // Can't average down to higher price
+
+    const currentShares = currentLot * 100;
+    const currentValue = currentAvg * currentShares;
+
+    // Formula: targetAvg = (currentValue + newPrice * newShares) / (currentShares + newShares)
+    // We need to find newPrice and newShares combination
+
+    const results = [];
+    for (let addLot = 1; addLot <= Math.min(maxLot, currentLot * 5); addLot++) {
+        const addShares = addLot * 100;
+        const totalShares = currentShares + addShares;
+
+        // targetAvg * totalShares = currentValue + newPrice * addShares
+        // newPrice = (targetAvg * totalShares - currentValue) / addShares
+        const requiredPrice = (targetAvg * totalShares - currentValue) / addShares;
+
+        if (requiredPrice > 0 && requiredPrice < currentAvg) {
+            results.push({
+                lot: addLot,
+                price: Math.round(requiredPrice),
+                totalLot: currentLot + addLot,
+                totalValue: currentValue + (requiredPrice * addShares),
+            });
+        }
+    }
+
+    return results.slice(0, 10); // Return top 10 combinations
+};
