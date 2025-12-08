@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Navbar from '../components/Navbar';
+import ProtectedRoute from '../components/ProtectedRoute';
 import {
     formatRupiah,
     formatPercentage,
@@ -13,7 +14,7 @@ import {
     getPriceFraction,
 } from '../lib/calculations';
 
-export default function ToolsPage() {
+function ToolsContent() {
     // ARA/ARB Calculator State
     const [araPrice, setAraPrice] = useState('');
     const [araType, setAraType] = useState('symmetric');
@@ -464,5 +465,13 @@ export default function ToolsPage() {
                 </div>
             </main>
         </>
+    );
+}
+
+export default function ToolsPage() {
+    return (
+        <ProtectedRoute>
+            <ToolsContent />
+        </ProtectedRoute>
     );
 }

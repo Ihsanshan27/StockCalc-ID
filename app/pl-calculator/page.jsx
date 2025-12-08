@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../components/AuthProvider';
+import ProtectedRoute from '../components/ProtectedRoute';
 import {
     formatRupiah,
     formatPercentage,
@@ -21,7 +22,7 @@ import {
     deleteTransaction,
 } from '../lib/storage';
 
-export default function PLCalculatorPage() {
+function PLCalculatorContent() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
 
@@ -669,5 +670,13 @@ export default function PLCalculatorPage() {
                 </div>
             )}
         </>
+    );
+}
+
+export default function PLCalculatorPage() {
+    return (
+        <ProtectedRoute>
+            <PLCalculatorContent />
+        </ProtectedRoute>
     );
 }

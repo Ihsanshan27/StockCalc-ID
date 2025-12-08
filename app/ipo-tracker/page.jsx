@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../components/AuthProvider';
+import ProtectedRoute from '../components/ProtectedRoute';
 import {
     formatRupiah,
     formatPercentage,
@@ -19,7 +20,7 @@ import {
     deleteIPO,
 } from '../lib/storage';
 
-export default function IPOTrackerPage() {
+function IPOTrackerContent() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
 
@@ -576,5 +577,13 @@ export default function IPOTrackerPage() {
                 </div>
             )}
         </>
+    );
+}
+
+export default function IPOTrackerPage() {
+    return (
+        <ProtectedRoute>
+            <IPOTrackerContent />
+        </ProtectedRoute>
     );
 }

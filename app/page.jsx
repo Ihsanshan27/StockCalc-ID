@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Navbar from './components/Navbar';
 import { useAuth } from './components/AuthProvider';
+import ProtectedRoute from './components/ProtectedRoute';
 import {
    formatRupiah,
    formatPercentage,
@@ -21,7 +22,7 @@ import {
    clearAllData,
 } from './lib/storage';
 
-export default function DashboardPage() {
+function DashboardContent() {
    const { user, loading: authLoading } = useAuth();
    const router = useRouter();
 
@@ -302,7 +303,7 @@ export default function DashboardPage() {
                                        <div className="flex items-center gap-md">
                                           <span className="font-semibold">{ipo.stockCode}</span>
                                           <span className={`badge ${ipo.status === 'hold' ? 'badge-primary' :
-                                                ipo.status === 'partial' ? 'badge-warning' : 'badge-success'
+                                             ipo.status === 'partial' ? 'badge-warning' : 'badge-success'
                                              }`} style={{ fontSize: '0.65rem' }}>
                                              {ipo.status === 'hold' ? 'Hold' : ipo.status === 'partial' ? 'Partial' : 'Sold'}
                                           </span>
@@ -385,5 +386,13 @@ export default function DashboardPage() {
             </div>
          )}
       </>
+   );
+}
+
+export default function DashboardPage() {
+   return (
+      <ProtectedRoute>
+         <DashboardContent />
+      </ProtectedRoute>
    );
 }
