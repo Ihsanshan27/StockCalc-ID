@@ -12,6 +12,9 @@ import {
     calculateMultipleARB,
     calculateWeightedAverage,
     getPriceFraction,
+    calculateRetirementFund,
+    calculateMonthlySavings,
+    projectRetirementGrowth,
 } from '../lib/calculations';
 
 function ToolsContent() {
@@ -30,6 +33,37 @@ function ToolsContent() {
     ]);
     const [avgResult, setAvgResult] = useState(null);
     const [targetPrice, setTargetPrice] = useState('');
+
+    // Retirement Fund Calculator State
+    const [retireMonthlyExpense, setRetireMonthlyExpense] = useState('');
+    const [retireInflation, setRetireInflation] = useState('6');
+    const [retireYears, setRetireYears] = useState('');
+    const [retireCurrentSavings, setRetireCurrentSavings] = useState('');
+    const [retireReturn, setRetireReturn] = useState('10');
+    const [retireResult, setRetireResult] = useState(null);
+    const [retireSavingsResult, setRetireSavingsResult] = useState(null);
+    const [retireProjections, setRetireProjections] = useState(null);
+
+    // Helper function to format Rupiah input with thousand separators
+    const formatRupiahInput = (value) => {
+        // Remove all non-digit characters
+        const numericValue = value.replace(/\D/g, '');
+        if (!numericValue) return '';
+        // Format with thousand separators
+        return new Intl.NumberFormat('id-ID').format(parseInt(numericValue, 10));
+    };
+
+    // Helper function to parse Rupiah input back to number
+    const parseRupiahInput = (value) => {
+        if (!value) return '';
+        return value.replace(/\D/g, '');
+    };
+
+    // Handlers for Rupiah formatted inputs
+    const handleRupiahChange = (setter) => (e) => {
+        const formatted = formatRupiahInput(e.target.value);
+        setter(formatted);
+    };
 
     // ARA/ARB Calculator Functions
     const handleCalculateARA = () => {
@@ -101,6 +135,58 @@ function ToolsContent() {
         ]);
         setAvgResult(null);
         setTargetPrice('');
+    };
+
+    // Retirement Fund Calculator Functions
+    const handleCalculateRetirement = () => {
+        const monthlyExpense = parseFloat(parseRupiahInput(retireMonthlyExpense));
+        const inflation = parseFloat(retireInflation) || 6;
+        const years = parseFloat(retireYears) || 0;
+        const currentSavings = parseFloat(parseRupiahInput(retireCurrentSavings)) || 0;
+        const annualReturn = parseFloat(retireReturn) || 10;
+
+        if (!monthlyExpense || monthlyExpense <= 0) {
+            alert('Masukkan pengeluaran bulanan yang valid!');
+            return;
+        }
+
+        if (!years || years <= 0) {
+            alert('Masukkan jangka waktu hingga pensiun!');
+            return;
+        }
+
+        // Calculate required retirement fund
+        const fundResult = calculateRetirementFund(monthlyExpense, inflation, years);
+        setRetireResult(fundResult);
+
+        // Calculate monthly savings needed
+        const savingsResult = calculateMonthlySavings(
+            fundResult.requiredFund,
+            currentSavings,
+            years,
+            annualReturn
+        );
+        setRetireSavingsResult(savingsResult);
+
+        // Project growth
+        const projections = projectRetirementGrowth(
+            currentSavings,
+            savingsResult.monthlySavings,
+            Math.min(years, 30),
+            annualReturn
+        );
+        setRetireProjections(projections);
+    };
+
+    const handleResetRetirement = () => {
+        setRetireMonthlyExpense('');
+        setRetireInflation('6');
+        setRetireYears('');
+        setRetireCurrentSavings('');
+        setRetireReturn('10');
+        setRetireResult(null);
+        setRetireSavingsResult(null);
+        setRetireProjections(null);
     };
 
     return (
@@ -290,7 +376,7 @@ function ToolsContent() {
                     </div>
 
                     {/* Average Price Calculator */}
-                    <div className="card animate-slide-up" style={{ animationDelay: '100ms' }}>
+                    <div className="card mb-xl animate-slide-up" style={{ animationDelay: '100ms' }}>
                         <div className="card-header">
                             <h2 className="card-title">📐 Kalkulator Harga Rata-rata</h2>
                         </div>
@@ -432,6 +518,273 @@ function ToolsContent() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Retirement Fund Calculator */}
+                    <div className="card mb-xl animate-slide-up" style={{ animationDelay: '150ms' }}>
+                        <div className="card-header">
+                            <h2 className="card-title">🏖️ Kalkulator Dana Pensiun (4% Rule)</h2>
+                        </div>
+                        <div className="card-body">
+                            <p className="text-muted mb-lg" style={{ fontSize: 'var(--font-size-sm)' }}>
+                                Hitung berapa dana yang dibutuhkan untuk pensiun berdasarkan <strong>4% Rule</strong> - aturan yang menyatakan Anda dapat menarik 4% dari portofolio setiap tahun tanpa kehabisan uang selama 30+ tahun pensiun.
+                            </p>
+
+                            {/* Input Form */}
+                            <div className="grid grid-3 mb-lg">
+                                <div className="form-group">
+                                    <label className="form-label">Pengeluaran Bulanan Saat Pensiun (Rp)</label>
+                                    <input
+                                        type="text"
+                                        value={retireMonthlyExpense}
+                                        onChange={handleRupiahChange(setRetireMonthlyExpense)}
+                                        placeholder="10.000.000"
+                                        className="form-input"
+                                    />
+                                    <small className="text-muted">Berapa biaya hidup bulanan yang Anda inginkan?</small>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Tahun Hingga Pensiun</label>
+                                    <input
+                                        type="number"
+                                        value={retireYears}
+                                        onChange={(e) => setRetireYears(e.target.value)}
+                                        placeholder="20"
+                                        className="form-input"
+                                        min="1"
+                                    />
+                                    <small className="text-muted">Berapa tahun lagi hingga pensiun?</small>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Tabungan/Investasi Saat Ini (Rp)</label>
+                                    <input
+                                        type="text"
+                                        value={retireCurrentSavings}
+                                        onChange={handleRupiahChange(setRetireCurrentSavings)}
+                                        placeholder="100.000.000"
+                                        className="form-input"
+                                    />
+                                    <small className="text-muted">Dana yang sudah terkumpul saat ini</small>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-3 mb-lg">
+                                <div className="form-group">
+                                    <label className="form-label">Inflasi Tahunan (%)</label>
+                                    <input
+                                        type="number"
+                                        value={retireInflation}
+                                        onChange={(e) => setRetireInflation(e.target.value)}
+                                        placeholder="6"
+                                        className="form-input"
+                                        step="0.5"
+                                    />
+                                    <small className="text-muted">Rata-rata inflasi Indonesia ~6%/tahun</small>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Expected Return Investasi (%)</label>
+                                    <input
+                                        type="number"
+                                        value={retireReturn}
+                                        onChange={(e) => setRetireReturn(e.target.value)}
+                                        placeholder="10"
+                                        className="form-input"
+                                        step="0.5"
+                                    />
+                                    <small className="text-muted">Return saham ~10-15%, reksa dana ~8-12%</small>
+                                </div>
+                                <div className="form-group flex items-end gap-sm">
+                                    <button onClick={handleCalculateRetirement} className="btn btn-primary">
+                                        🧮 Hitung Dana Pensiun
+                                    </button>
+                                    <button onClick={handleResetRetirement} className="btn btn-secondary">
+                                        🔄 Reset
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Results */}
+                            {retireResult && (
+                                <div className="mt-xl">
+                                    <h4 className="mb-md">📊 Hasil Kalkulasi</h4>
+
+                                    {/* Main Result Cards */}
+                                    <div className="grid grid-4 mb-lg">
+                                        <div className="summary-card" style={{
+                                            padding: 'var(--space-lg)',
+                                            background: 'linear-gradient(135deg, var(--color-primary-light), var(--bg-tertiary))',
+                                            borderLeft: '4px solid var(--color-primary)'
+                                        }}>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>💰 Dana Pensiun Dibutuhkan</p>
+                                            <p className="font-bold text-primary" style={{ fontSize: 'var(--font-size-xl)' }}>
+                                                {formatRupiah(retireResult.requiredFund)}
+                                            </p>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-xs)' }}>
+                                                Berdasarkan 4% rule
+                                            </p>
+                                        </div>
+
+                                        <div className="summary-card" style={{ padding: 'var(--space-lg)' }}>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>📅 Pengeluaran Bulanan (Sekarang)</p>
+                                            <p className="font-bold" style={{ fontSize: 'var(--font-size-lg)' }}>
+                                                {formatRupiah(retireResult.currentMonthlyExpense)}
+                                            </p>
+                                        </div>
+
+                                        <div className="summary-card" style={{ padding: 'var(--space-lg)' }}>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>📈 Pengeluaran Bulanan (Saat Pensiun)</p>
+                                            <p className="font-bold text-warning" style={{ fontSize: 'var(--font-size-lg)' }}>
+                                                {formatRupiah(retireResult.futureMonthlyExpense)}
+                                            </p>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-xs)' }}>
+                                                Setelah inflasi {retireResult.yearsUntilRetirement} tahun
+                                            </p>
+                                        </div>
+
+                                        <div className="summary-card" style={{ padding: 'var(--space-lg)' }}>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>🗓️ Pengeluaran Tahunan (Saat Pensiun)</p>
+                                            <p className="font-bold" style={{ fontSize: 'var(--font-size-lg)' }}>
+                                                {formatRupiah(retireResult.futureAnnualExpense)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Monthly Savings Needed */}
+                                    {retireSavingsResult && (
+                                        <div className="grid grid-3 mb-lg">
+                                            <div className="summary-card" style={{
+                                                padding: 'var(--space-lg)',
+                                                background: 'linear-gradient(135deg, var(--color-success-light), var(--bg-tertiary))',
+                                                borderLeft: '4px solid var(--color-success)'
+                                            }}>
+                                                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>💵 Nabung per Bulan</p>
+                                                <p className="font-bold text-success" style={{ fontSize: 'var(--font-size-2xl)' }}>
+                                                    {formatRupiah(retireSavingsResult.monthlySavings)}
+                                                </p>
+                                                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-xs)' }}>
+                                                    Selama {retireResult.yearsUntilRetirement} tahun dengan return {retireSavingsResult.annualReturn}%/tahun
+                                                </p>
+                                            </div>
+
+                                            <div className="summary-card" style={{ padding: 'var(--space-lg)' }}>
+                                                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>🏦 Dana Saat Ini</p>
+                                                <p className="font-bold" style={{ fontSize: 'var(--font-size-lg)' }}>
+                                                    {formatRupiah(retireSavingsResult.currentSavings)}
+                                                </p>
+                                                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-xs)' }}>
+                                                    Akan tumbuh menjadi {formatRupiah(retireSavingsResult.futureValueCurrentSavings)}
+                                                </p>
+                                            </div>
+
+                                            <div className="summary-card" style={{ padding: 'var(--space-lg)' }}>
+                                                <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>🎯 Sisa yang Perlu Dikumpulkan</p>
+                                                <p className="font-bold" style={{ fontSize: 'var(--font-size-lg)' }}>
+                                                    {formatRupiah(retireSavingsResult.remainingNeeded)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Scenarios Comparison */}
+                                    <div className="mb-lg">
+                                        <h5 className="mb-md">📋 Perbandingan Skenario Withdrawal Rate</h5>
+                                        <div className="table-container">
+                                            <table className="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Skenario</th>
+                                                        <th>Withdrawal Rate</th>
+                                                        <th>Dana Dibutuhkan</th>
+                                                        <th>Penarikan Tahunan</th>
+                                                        <th>Penarikan Bulanan</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {retireResult.scenarios.map((scenario) => (
+                                                        <tr key={scenario.rate} className={scenario.rate === 4 ? 'font-semibold' : ''}>
+                                                            <td>{scenario.label}</td>
+                                                            <td>{scenario.rate}%</td>
+                                                            <td className={scenario.rate === 4 ? 'text-primary' : ''}>{formatRupiah(scenario.fund)}</td>
+                                                            <td>{formatRupiah(retireResult.futureAnnualExpense)}</td>
+                                                            <td>{formatRupiah(retireResult.futureMonthlyExpense)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Projections Table */}
+                                    {retireProjections && retireProjections.length > 0 && (
+                                        <div>
+                                            <h5 className="mb-md">📈 Proyeksi Pertumbuhan Dana</h5>
+                                            <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                                <table className="table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Tahun</th>
+                                                            <th>Saldo Awal</th>
+                                                            <th>Kontribusi</th>
+                                                            <th>Return Investasi</th>
+                                                            <th>Saldo Akhir</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {retireProjections.map((proj) => (
+                                                            <tr key={proj.year}>
+                                                                <td>{proj.year}</td>
+                                                                <td>{formatRupiah(proj.startBalance)}</td>
+                                                                <td className="text-success">{formatRupiah(proj.contribution)}</td>
+                                                                <td className="text-primary">{formatRupiah(proj.returns)}</td>
+                                                                <td className="font-semibold">{formatRupiah(proj.endBalance)}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div className="mt-md" style={{
+                                                background: 'var(--color-success-light)',
+                                                padding: 'var(--space-md)',
+                                                borderRadius: 'var(--radius-md)'
+                                            }}>
+                                                <p className="text-success font-semibold">
+                                                    🎉 Total Dana di Akhir: {formatRupiah(retireProjections[retireProjections.length - 1].endBalance)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 4% Rule Info Card */}
+                    <div className="card mb-xl animate-slide-up" style={{ animationDelay: '180ms' }}>
+                        <div className="card-body">
+                            <h4 className="mb-md">ℹ️ Apa itu 4% Rule?</h4>
+                            <div className="grid grid-2 gap-lg">
+                                <div>
+                                    <h5 className="mb-sm">Konsep Dasar:</h5>
+                                    <ul style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)', paddingLeft: 'var(--space-lg)' }}>
+                                        <li><strong>4% Rule</strong> berasal dari penelitian Trinity Study tahun 1998</li>
+                                        <li>Anda dapat menarik 4% dari portofolio di tahun pertama pensiun</li>
+                                        <li>Tahun berikutnya, sesuaikan dengan inflasi</li>
+                                        <li>Portofolio akan bertahan minimal 30 tahun</li>
+                                        <li>Rumus: <strong>Dana Pensiun = Pengeluaran Tahunan ÷ 0.04</strong></li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 className="mb-sm">Tips Perencanaan:</h5>
+                                    <ul style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)', paddingLeft: 'var(--space-lg)' }}>
+                                        <li>Mulai investasi sedini mungkin (compound interest!)</li>
+                                        <li>Diversifikasi: Saham, Reksa Dana, Obligasi, Properti</li>
+                                        <li>Review dan sesuaikan rencana setiap tahun</li>
+                                        <li>Pertimbangkan juga asuransi kesehatan</li>
+                                        <li>Gunakan 3% rule jika ingin lebih konservatif</li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

@@ -495,3 +495,137 @@ export const calculateTargetAverageDown = (currentAvg, currentLot, targetAvg, ma
 
     return results.slice(0, 10); // Return top 10 combinations
 };
+
+// ========================================
+// Retirement Fund Calculator (4% Rule)
+// ========================================
+
+/**
+ * Calculate required retirement fund using the 4% rule
+ * The 4% rule suggests you can safely withdraw 4% of your portfolio annually
+ * @param {number} monthlyExpense - Monthly expense in retirement
+ * @param {number} inflationRate - Annual inflation rate (default 6% for Indonesia)
+ * @param {number} yearsUntilRetirement - Years until retirement
+ * @returns {object} Retirement fund calculations
+ */
+export const calculateRetirementFund = (monthlyExpense, inflationRate = 6, yearsUntilRetirement = 0) => {
+    // Adjust for inflation if years until retirement is provided
+    const inflationMultiplier = Math.pow(1 + inflationRate / 100, yearsUntilRetirement);
+    const futureMonthlyExpense = monthlyExpense * inflationMultiplier;
+    const futureAnnualExpense = futureMonthlyExpense * 12;
+
+    // Using 4% rule: Required fund = Annual expense / 0.04
+    const requiredFund = futureAnnualExpense / 0.04;
+
+    // Calculate with different withdrawal rates for comparison
+    const scenarios = [
+        { rate: 3, fund: futureAnnualExpense / 0.03, label: 'Konservatif (3%)' },
+        { rate: 4, fund: futureAnnualExpense / 0.04, label: 'Standard (4%)' },
+        { rate: 5, fund: futureAnnualExpense / 0.05, label: 'Agresif (5%)' },
+    ];
+
+    return {
+        currentMonthlyExpense: monthlyExpense,
+        futureMonthlyExpense: Math.round(futureMonthlyExpense),
+        futureAnnualExpense: Math.round(futureAnnualExpense),
+        requiredFund: Math.round(requiredFund),
+        inflationMultiplier,
+        yearsUntilRetirement,
+        scenarios,
+    };
+};
+
+/**
+ * Calculate monthly savings required to reach retirement goal
+ * @param {number} targetFund - Target retirement fund
+ * @param {number} currentSavings - Current savings
+ * @param {number} yearsUntilRetirement - Years until retirement
+ * @param {number} annualReturn - Expected annual return (default 10%)
+ * @returns {object} Savings plan
+ */
+export const calculateMonthlySavings = (targetFund, currentSavings = 0, yearsUntilRetirement, annualReturn = 10) => {
+    const monthlyRate = annualReturn / 100 / 12;
+    const totalMonths = yearsUntilRetirement * 12;
+
+    // Future value of current savings
+    const futureValueCurrentSavings = currentSavings * Math.pow(1 + annualReturn / 100, yearsUntilRetirement);
+
+    // Remaining amount needed
+    const remainingNeeded = Math.max(0, targetFund - futureValueCurrentSavings);
+
+    // Monthly savings needed using PMT formula
+    let monthlySavings = 0;
+    if (remainingNeeded > 0 && totalMonths > 0) {
+        if (monthlyRate === 0) {
+            monthlySavings = remainingNeeded / totalMonths;
+        } else {
+            monthlySavings = remainingNeeded * monthlyRate / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+        }
+    }
+
+    return {
+        targetFund,
+        currentSavings,
+        futureValueCurrentSavings: Math.round(futureValueCurrentSavings),
+        remainingNeeded: Math.round(remainingNeeded),
+        monthlySavings: Math.round(monthlySavings),
+        totalMonths,
+        annualReturn,
+    };
+};
+
+/**
+ * Project retirement fund growth year by year
+ * @param {number} currentSavings - Current savings
+ * @param {number} monthlySavings - Monthly savings
+ * @param {number} years - Years to project
+ * @param {number} annualReturn - Expected annual return (default 10%)
+ * @returns {array} Year by year projection
+ */
+export const projectRetirementGrowth = (currentSavings, monthlySavings, years, annualReturn = 10) => {
+    const projections = [];
+    let balance = currentSavings;
+    const monthlyRate = annualReturn / 100 / 12;
+
+    for (let year = 1; year <= years; year++) {
+        const startBalance = balance;
+        let yearlyContribution = 0;
+
+        // Calculate month by month for the year
+        for (let month = 1; month <= 12; month++) {
+            balance += monthlySavings;
+            balance *= (1 + monthlyRate);
+            yearlyContribution += monthlySavings;
+        }
+
+        const yearlyReturn = balance - startBalance - yearlyContribution;
+
+        projections.push({
+            year,
+            startBalance: Math.round(startBalance),
+            contribution: Math.round(yearlyContribution),
+            returns: Math.round(yearlyReturn),
+            endBalance: Math.round(balance),
+        });
+    }
+
+    return projections;
+};
+
+/**
+ * Calculate safe withdrawal with 4% rule
+ * @param {number} portfolioValue - Current portfolio value
+ * @param {number} withdrawalRate - Annual withdrawal rate (default 4%)
+ * @returns {object} Withdrawal calculations
+ */
+export const calculateSafeWithdrawal = (portfolioValue, withdrawalRate = 4) => {
+    const annualWithdrawal = portfolioValue * (withdrawalRate / 100);
+    const monthlyWithdrawal = annualWithdrawal / 12;
+
+    return {
+        portfolioValue,
+        withdrawalRate,
+        annualWithdrawal: Math.round(annualWithdrawal),
+        monthlyWithdrawal: Math.round(monthlyWithdrawal),
+    };
+};
