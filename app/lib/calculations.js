@@ -312,25 +312,27 @@ export const calculateARAARB = (price, type = 'symmetric') => {
     let araPercent, arbPercent;
 
     // IDX rules based on price range
-    if (price < 50) {
-        // Untuk harga < Rp50: ±10% atau minimal perubahan Rp10
-        araPercent = 35;
-        arbPercent = 7;
-    } else if (price <= 200) {
-        // Symmetric: 35% up, 7% down (non-accelerated market)
-        araPercent = type === 'accelerated' ? 35 : 35;
-        arbPercent = type === 'accelerated' ? 7 : 7;
+    // IDX rules based on price range (Effective Apr 2025)
+    // Regular Board: ARA Tiered (35/25/20), ARB Fixed (15%)
+    // Acceleration Board (FCA): ARA 10%, ARB 10%
+
+    if (type === 'acceleration' || type === 'fca') {
+        araPercent = 10;
+        arbPercent = 10;
     } else {
-        // Standard: 25% symmetric or 35%/7% asymmetric
-        if (type === 'symmetric') {
-            araPercent = 25;
-            arbPercent = 25;
-        } else if (type === 'asymmetric') {
+        // Regular (Main, Development, New Economy)
+        arbPercent = 15; // New Asymmetric ARB Rule
+
+        if (price < 50) {
+            // Special case < 50 often has different tick rules, but assuming standard tier for %
+            // usually treated as price group 1
             araPercent = 35;
-            arbPercent = 7;
+        } else if (price <= 200) {
+            araPercent = 35;
+        } else if (price <= 5000) {
+            araPercent = 25;
         } else {
             araPercent = 20;
-            arbPercent = 20;
         }
     }
 
