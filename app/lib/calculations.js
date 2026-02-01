@@ -629,3 +629,56 @@ export const calculateSafeWithdrawal = (portfolioValue, withdrawalRate = 4) => {
         monthlyWithdrawal: Math.round(monthlyWithdrawal),
     };
 };
+
+// ========================================
+// Position Sizing Calculator
+// ========================================
+
+/**
+ * Calculate position size based on risk per trade
+ * @param {number} capital - Total capital available
+ * @param {number} riskPercentage - Risk per trade in percentage (e.g., 1% or 2%)
+ * @param {number} entryPrice - Entry price per share
+ * @param {number} stopLossPrice - Stop loss price per share
+ * @returns {object} Position sizing details
+ */
+export const calculatePositionSize = (capital, riskPercentage, entryPrice, stopLossPrice) => {
+    if (!capital || !entryPrice || !stopLossPrice || entryPrice <= stopLossPrice) {
+        return null;
+    }
+
+    const riskAmount = capital * (riskPercentage / 100);
+    const riskPerShare = entryPrice - stopLossPrice;
+
+    // Formula: Number of Shares = Risk Amount / Risk Per Share
+    const maxShares = Math.floor(riskAmount / riskPerShare);
+    const maxLots = Math.floor(maxShares / 100);
+
+    // Recalculate actual risk based on rounded lots
+    const actualRiskAmount = (maxLots * 100) * riskPerShare;
+    const positionValue = (maxLots * 100) * entryPrice;
+
+    // Risk to Reward (assuming 1:2 ratio for target)
+    const targetPrice1x = entryPrice + riskPerShare;
+    const targetPrice2x = entryPrice + (riskPerShare * 2);
+    const targetPrice3x = entryPrice + (riskPerShare * 3);
+
+    return {
+        capital,
+        riskPercentage,
+        riskAmount,
+        entryPrice,
+        stopLossPrice,
+        riskPerShare,
+        maxShares,
+        maxLots,
+        actualRiskAmount,
+        positionValue,
+        projectedLoss: actualRiskAmount,
+        targets: [
+            { ratio: '1:1', price: targetPrice1x, profit: actualRiskAmount },
+            { ratio: '1:2', price: targetPrice2x, profit: actualRiskAmount * 2 },
+            { ratio: '1:3', price: targetPrice3x, profit: actualRiskAmount * 3 },
+        ]
+    };
+};

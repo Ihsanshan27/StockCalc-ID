@@ -21,6 +21,27 @@ import {
     updateTransaction,
     deleteTransaction,
 } from '../lib/storage';
+import {
+    Chart as ChartJS,
+    ArcElement,
+    Tooltip,
+    Legend,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+} from 'chart.js';
+import { Pie, Bar, Doughnut } from 'react-chartjs-2';
+
+ChartJS.register(
+    ArcElement,
+    Tooltip,
+    Legend,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title
+);
 
 function PLCalculatorContent() {
     const { user, loading: authLoading } = useAuth();
@@ -53,6 +74,8 @@ function PLCalculatorContent() {
         sellFee: '0.25',
         transactionDate: new Date().toISOString().split('T')[0],
         notes: '',
+        entryReason: 'fundamental', // breakout, reversal, fundamental, news, etc
+        psychology: 'neutral', // confident, fear, greed, neutral
     });
 
     // Stats
@@ -63,7 +86,41 @@ function PLCalculatorContent() {
         winRate: 0,
         biggestWin: null,
         biggestLoss: null,
+        allocationData: null,
+        monthlyData: null,
+        winLossData: null,
     });
+
+    // Load form data from localStorage on mount
+    useEffect(() => {
+        const savedCalcForm = localStorage.getItem('pl_calc_form');
+        if (savedCalcForm) {
+            try {
+                setCalcForm(JSON.parse(savedCalcForm));
+            } catch (e) {
+                console.error('Error parsing saved calcForm', e);
+            }
+        }
+
+        const savedFormData = localStorage.getItem('pl_form_data');
+        if (savedFormData) {
+            try {
+                setFormData(JSON.parse(savedFormData));
+            } catch (e) {
+                console.error('Error parsing saved formData', e);
+            }
+        }
+    }, []);
+
+    // Save calcForm to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('pl_calc_form', JSON.stringify(calcForm));
+    }, [calcForm]);
+
+    // Save formData to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('pl_form_data', JSON.stringify(formData));
+    }, [formData]);
 
     // Load transactions on mount
     useEffect(() => {
@@ -87,6 +144,38 @@ function PLCalculatorContent() {
         const plStats = calculateTotalRealizedPL(data);
         const winRate = calculateWinRate(data);
         const { biggestWin, biggestLoss } = getBiggestWinLoss(data);
+
+        // Prepare Chart Data
+        // 1. Allocation (Current Holdings)
+        const holdings = data.filter(t => !t.sellPrice);
+        const allocationMap = {};
+        holdings.forEach(t => {
+            const value = t.buyPrice * t.lotQty * 100;
+            allocationMap[t.stockCode] = (allocationMap[t.stockCode] || 0) + value;
+        });
+
+        const allocationData = {
+            labels: Object.keys(allocationMap),
+            datasets: [{
+                data: Object.values(allocationMap),
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+                ],
+            }]
+        };
+
+        // 2. Win/Loss Ratio
+        const wins = data.filter(t => t.sellPrice && calculatePL(t.buyPrice, t.sellPrice, t.lotQty).pl > 0).length;
+        const losses = data.filter(t => t.sellPrice && calculatePL(t.buyPrice, t.sellPrice, t.lotQty).pl <= 0).length;
+
+        const winLossData = {
+            labels: ['Win', 'Loss'],
+            datasets: [{
+                data: [wins, losses],
+                backgroundColor: ['#4ade80', '#f87171'],
+            }]
+        };
+
         setStats({
             totalPL: plStats.total,
             profit: plStats.profit,
@@ -94,7 +183,51 @@ function PLCalculatorContent() {
             winRate,
             biggestWin,
             biggestLoss,
+            allocationData,
+            winLossData,
         });
+    };
+
+    const handleExportCSV = () => {
+        if (transactions.length === 0) {
+            alert('Belum ada data untuk diexport!');
+            return;
+        }
+
+        const headers = ['Tanggal', 'Kode', 'Nama', 'Buy Price', 'Sell Price', 'Lot', 'Fee Beli', 'Fee Jual', 'Net Buy', 'Net Sell', 'P/L', '%', 'Alasan', 'Psikologi', 'Catatan'];
+        const csvRows = [headers.join(',')];
+
+        transactions.forEach(t => {
+            const result = t.sellPrice ? calculatePL(t.buyPrice, t.sellPrice, t.lotQty, t.buyFee, t.sellFee) : null;
+            const row = [
+                formatDate(t.transactionDate),
+                t.stockCode,
+                t.stockName || '-',
+                t.buyPrice,
+                t.sellPrice || '-',
+                t.lotQty,
+                t.buyFee,
+                t.sellFee,
+                result ? result.totalBuyCost : '-',
+                result ? result.netSellValue : '-',
+                result ? result.pl : '-',
+                result ? result.plPercentage.toFixed(2) + '%' : '-',
+                t.entryReason || '-',
+                t.psychology || '-',
+                `"${t.notes || ''}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     };
 
     // Quick calculator
@@ -226,7 +359,10 @@ function PLCalculatorContent() {
             buyFee: transaction.buyFee?.toString() || '0.15',
             sellFee: transaction.sellFee?.toString() || '0.25',
             transactionDate: transaction.transactionDate?.split('T')[0] || '',
+            transactionDate: transaction.transactionDate?.split('T')[0] || '',
             notes: transaction.notes || '',
+            entryReason: transaction.entryReason || 'fundamental',
+            psychology: transaction.psychology || 'neutral',
         });
         setEditingId(transaction.id);
         setShowModal(true);
@@ -253,7 +389,10 @@ function PLCalculatorContent() {
             buyFee: '0.15',
             sellFee: '0.25',
             transactionDate: new Date().toISOString().split('T')[0],
+            transactionDate: new Date().toISOString().split('T')[0],
             notes: '',
+            entryReason: 'fundamental',
+            psychology: 'neutral',
         });
         setEditingId(null);
         setShowModal(false);
@@ -445,13 +584,47 @@ function PLCalculatorContent() {
                         </div>
                     </div>
 
+
+                    {/* Analytics Charts */}
+                    <div className="grid grid-2 gap-xl mb-xl">
+                        <div className="card animate-slide-up" style={{ animationDelay: '450ms' }}>
+                            <div className="card-header">
+                                <h3 className="card-title">📊 Alokasi Portfolio</h3>
+                            </div>
+                            <div className="card-body flex justify-center" style={{ height: '300px' }}>
+                                {stats.allocationData && stats.allocationData.datasets[0].data.length > 0 ? (
+                                    <Pie data={stats.allocationData} options={{ maintainAspectRatio: false }} />
+                                ) : (
+                                    <p className="text-muted self-center">Belum ada saham yang di-hold.</p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="card animate-slide-up" style={{ animationDelay: '500ms' }}>
+                            <div className="card-header">
+                                <h3 className="card-title">⚖️ Win vs Loss Ratio</h3>
+                            </div>
+                            <div className="card-body flex justify-center" style={{ height: '300px' }}>
+                                {stats.winLossData && (stats.winLossData.datasets[0].data[0] > 0 || stats.winLossData.datasets[0].data[1] > 0) ? (
+                                    <Doughnut data={stats.winLossData} options={{ maintainAspectRatio: false }} />
+                                ) : (
+                                    <p className="text-muted self-center">Belum ada transaksi selesai.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Transaction History */}
                     <div className="card animate-slide-up" style={{ animationDelay: '500ms' }}>
-                        <div className="card-header">
+                        <div className="card-header flex justify-between items-center">
                             <h2 className="card-title">📋 Riwayat Transaksi</h2>
-                            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-                                ➕ Tambah Transaksi
-                            </button>
+                            <div className="flex gap-sm">
+                                <button className="btn btn-secondary btn-sm" onClick={handleExportCSV}>
+                                    📥 Export CSV
+                                </button>
+                                <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                                    ➕ Tambah Transaksi
+                                </button>
+                            </div>
                         </div>
                         <div className="card-body">
                             {loading ? (
@@ -480,6 +653,8 @@ function PLCalculatorContent() {
                                                 <th>Harga Beli</th>
                                                 <th>Harga Jual</th>
                                                 <th>Lot</th>
+                                                <th>Total Beli</th>
+                                                <th>Total Bersih</th>
                                                 <th>P/L</th>
                                                 <th>%</th>
                                                 <th>Aksi</th>
@@ -497,6 +672,8 @@ function PLCalculatorContent() {
                                                         <td>{formatRupiah(transaction.buyPrice)}</td>
                                                         <td>{transaction.sellPrice ? formatRupiah(transaction.sellPrice) : <span className="badge badge-warning">Hold</span>}</td>
                                                         <td>{transaction.lotQty}</td>
+                                                        <td>{result ? formatRupiah(result.totalBuyCost) : '-'}</td>
+                                                        <td>{result ? formatRupiah(result.netSellValue) : '-'}</td>
                                                         <td className={result ? (result.pl >= 0 ? 'text-success' : 'text-danger') : ''}>
                                                             {result ? formatRupiah(result.pl) : '-'}
                                                         </td>
@@ -531,144 +708,180 @@ function PLCalculatorContent() {
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
 
             {/* Modal */}
-            {showModal && (
-                <div className="modal-overlay" onClick={() => resetForm()}>
-                    <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">{editingId ? '✏️ Edit Transaksi' : '➕ Tambah Transaksi'}</h3>
-                            <button className="modal-close" onClick={resetForm}>✕</button>
+            {
+                showModal && (
+                    <div className="modal-overlay" onClick={() => resetForm()}>
+                        <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h3 className="modal-title">{editingId ? '✏️ Edit Transaksi' : '➕ Tambah Transaksi'}</h3>
+                                <button className="modal-close" onClick={resetForm}>✕</button>
+                            </div>
+                            <form onSubmit={handleSubmit}>
+                                <div className="modal-body">
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Kode Saham *</label>
+                                            <input
+                                                type="text"
+                                                name="stockCode"
+                                                value={formData.stockCode}
+                                                onChange={handleFormChange}
+                                                placeholder="BBCA"
+                                                className="form-input"
+                                                style={{ textTransform: 'uppercase' }}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Nama Emiten</label>
+                                            <input
+                                                type="text"
+                                                name="stockName"
+                                                value={formData.stockName}
+                                                onChange={handleFormChange}
+                                                placeholder="Bank Central Asia"
+                                                className="form-input"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Harga Beli (Rp) *</label>
+                                            <input
+                                                type="number"
+                                                name="buyPrice"
+                                                value={formData.buyPrice}
+                                                onChange={handleFormChange}
+                                                placeholder="8000"
+                                                className="form-input"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Harga Jual (Rp)</label>
+                                            <input
+                                                type="number"
+                                                name="sellPrice"
+                                                value={formData.sellPrice}
+                                                onChange={handleFormChange}
+                                                placeholder="8500"
+                                                className="form-input"
+                                            />
+                                            <p className="form-hint">Kosongkan jika masih hold</p>
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Jumlah Lot *</label>
+                                            <input
+                                                type="number"
+                                                name="lotQty"
+                                                value={formData.lotQty}
+                                                onChange={handleFormChange}
+                                                placeholder="10"
+                                                className="form-input"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Tanggal Transaksi</label>
+                                            <input
+                                                type="date"
+                                                name="transactionDate"
+                                                value={formData.transactionDate}
+                                                onChange={handleFormChange}
+                                                className="form-input"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Fee Beli (%)</label>
+                                            <input
+                                                type="number"
+                                                name="buyFee"
+                                                value={formData.buyFee}
+                                                onChange={handleFormChange}
+                                                placeholder="0.15"
+                                                step="0.01"
+                                                className="form-input"
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Fee Jual (%)</label>
+                                            <input
+                                                type="number"
+                                                name="sellFee"
+                                                value={formData.sellFee}
+                                                onChange={handleFormChange}
+                                                placeholder="0.25"
+                                                step="0.01"
+                                                className="form-input"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Alasan Entry</label>
+                                            <select
+                                                name="entryReason"
+                                                value={formData.entryReason}
+                                                onChange={handleFormChange}
+                                                className="form-input form-select"
+                                            >
+                                                <option value="fundamental">Fundamental (Undervalued/Growth)</option>
+                                                <option value="breakout">Technical Breakout</option>
+                                                <option value="support">Technical Rebound Support</option>
+                                                <option value="trend">Trend Following</option>
+                                                <option value="news">News/Sentiment</option>
+                                                <option value="dividend">Dividend Hunting</option>
+                                                <option value="fomo">FOMO / Ikut-ikutan</option>
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Kondisi Psikologis</label>
+                                            <select
+                                                name="psychology"
+                                                value={formData.psychology}
+                                                onChange={handleFormChange}
+                                                className="form-input form-select"
+                                            >
+                                                <option value="neutral">Neutral / Calm</option>
+                                                <option value="confident">Confident</option>
+                                                <option value="fear">Fear / Anxious</option>
+                                                <option value="greed">Greedy</option>
+                                                <option value="doubt">Doubting</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Catatan</label>
+                                        <input
+                                            type="text"
+                                            name="notes"
+                                            value={formData.notes}
+                                            onChange={handleFormChange}
+                                            placeholder="Catatan tambahan..."
+                                            className="form-input"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                                        Batal
+                                    </button>
+                                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                                        {saving ? '⏳ Menyimpan...' : (editingId ? '💾 Simpan Perubahan' : '➕ Tambah Transaksi')}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="modal-body">
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">Kode Saham *</label>
-                                        <input
-                                            type="text"
-                                            name="stockCode"
-                                            value={formData.stockCode}
-                                            onChange={handleFormChange}
-                                            placeholder="BBCA"
-                                            className="form-input"
-                                            style={{ textTransform: 'uppercase' }}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Nama Emiten</label>
-                                        <input
-                                            type="text"
-                                            name="stockName"
-                                            value={formData.stockName}
-                                            onChange={handleFormChange}
-                                            placeholder="Bank Central Asia"
-                                            className="form-input"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">Harga Beli (Rp) *</label>
-                                        <input
-                                            type="number"
-                                            name="buyPrice"
-                                            value={formData.buyPrice}
-                                            onChange={handleFormChange}
-                                            placeholder="8000"
-                                            className="form-input"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Harga Jual (Rp)</label>
-                                        <input
-                                            type="number"
-                                            name="sellPrice"
-                                            value={formData.sellPrice}
-                                            onChange={handleFormChange}
-                                            placeholder="8500"
-                                            className="form-input"
-                                        />
-                                        <p className="form-hint">Kosongkan jika masih hold</p>
-                                    </div>
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">Jumlah Lot *</label>
-                                        <input
-                                            type="number"
-                                            name="lotQty"
-                                            value={formData.lotQty}
-                                            onChange={handleFormChange}
-                                            placeholder="10"
-                                            className="form-input"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Tanggal Transaksi</label>
-                                        <input
-                                            type="date"
-                                            name="transactionDate"
-                                            value={formData.transactionDate}
-                                            onChange={handleFormChange}
-                                            className="form-input"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">Fee Beli (%)</label>
-                                        <input
-                                            type="number"
-                                            name="buyFee"
-                                            value={formData.buyFee}
-                                            onChange={handleFormChange}
-                                            placeholder="0.15"
-                                            step="0.01"
-                                            className="form-input"
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Fee Jual (%)</label>
-                                        <input
-                                            type="number"
-                                            name="sellFee"
-                                            value={formData.sellFee}
-                                            onChange={handleFormChange}
-                                            placeholder="0.25"
-                                            step="0.01"
-                                            className="form-input"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Catatan</label>
-                                    <input
-                                        type="text"
-                                        name="notes"
-                                        value={formData.notes}
-                                        onChange={handleFormChange}
-                                        placeholder="Catatan tambahan..."
-                                        className="form-input"
-                                    />
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={resetForm}>
-                                    Batal
-                                </button>
-                                <button type="submit" className="btn btn-primary" disabled={saving}>
-                                    {saving ? '⏳ Menyimpan...' : (editingId ? '💾 Simpan Perubahan' : '➕ Tambah Transaksi')}
-                                </button>
-                            </div>
-                        </form>
                     </div>
-                </div>
-            )}
+                )
+            }
         </>
     );
 }

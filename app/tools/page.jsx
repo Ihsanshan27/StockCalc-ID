@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import ProtectedRoute from '../components/ProtectedRoute';
 import {
@@ -15,9 +15,14 @@ import {
     calculateRetirementFund,
     calculateMonthlySavings,
     projectRetirementGrowth,
+    calculateTargetAverageDown,
+    calculatePositionSize,
 } from '../lib/calculations';
 
 function ToolsContent() {
+    // Tab Navigation State
+    const [activeTab, setActiveTab] = useState('ara-arb');
+
     // ARA/ARB Calculator State
     const [araPrice, setAraPrice] = useState('');
     const [araType, setAraType] = useState('symmetric');
@@ -34,6 +39,20 @@ function ToolsContent() {
     const [avgResult, setAvgResult] = useState(null);
     const [targetPrice, setTargetPrice] = useState('');
 
+    // Average Down Planner State
+    const [avgDownCurrentPrice, setAvgDownCurrentPrice] = useState('');
+    const [avgDownCurrentLot, setAvgDownCurrentLot] = useState('');
+    const [avgDownTargetAvg, setAvgDownTargetAvg] = useState('');
+    const [avgDownBudget, setAvgDownBudget] = useState(''); // Optional budget constraint
+    const [avgDownResult, setAvgDownResult] = useState(null);
+
+    // Risk & Position Sizing State
+    const [riskCapital, setRiskCapital] = useState('');
+    const [riskPercentage, setRiskPercentage] = useState('1'); // 1% default
+    const [riskEntryPrice, setRiskEntryPrice] = useState('');
+    const [riskStopLoss, setRiskStopLoss] = useState('');
+    const [riskResult, setRiskResult] = useState(null);
+
     // Retirement Fund Calculator State
     const [retireMonthlyExpense, setRetireMonthlyExpense] = useState('');
     const [retireInflation, setRetireInflation] = useState('6');
@@ -43,6 +62,120 @@ function ToolsContent() {
     const [retireResult, setRetireResult] = useState(null);
     const [retireSavingsResult, setRetireSavingsResult] = useState(null);
     const [retireProjections, setRetireProjections] = useState(null);
+
+    // Load tool state from localStorage on mount
+    useEffect(() => {
+        const savedAraPrice = localStorage.getItem('tool_ara_price');
+        if (savedAraPrice) setAraPrice(savedAraPrice);
+
+        const savedAraType = localStorage.getItem('tool_ara_type');
+        if (savedAraType) setAraType(savedAraType);
+
+        const savedAraDays = localStorage.getItem('tool_ara_days');
+        if (savedAraDays) setAraDays(parseInt(savedAraDays));
+
+        const savedAvgEntries = localStorage.getItem('tool_avg_entries');
+        if (savedAvgEntries) {
+            try {
+                setAvgEntries(JSON.parse(savedAvgEntries));
+            } catch (e) {
+                console.error('Error parsing saved avgEntries', e);
+            }
+        }
+
+        const savedTargetPrice = localStorage.getItem('tool_target_price');
+        if (savedTargetPrice) setTargetPrice(savedTargetPrice);
+
+        const savedRetireMonthlyExpense = localStorage.getItem('tool_retire_monthly');
+        if (savedRetireMonthlyExpense) setRetireMonthlyExpense(savedRetireMonthlyExpense);
+
+        const savedRetireInflation = localStorage.getItem('tool_retire_inflation');
+        if (savedRetireInflation) setRetireInflation(savedRetireInflation);
+
+        const savedRetireYears = localStorage.getItem('tool_retire_years');
+        if (savedRetireYears) setRetireYears(savedRetireYears);
+
+        const savedRetireCurrentSavings = localStorage.getItem('tool_retire_savings');
+        if (savedRetireCurrentSavings) setRetireCurrentSavings(savedRetireCurrentSavings);
+
+        const savedRetireReturn = localStorage.getItem('tool_retire_return');
+        if (savedRetireReturn) setRetireReturn(savedRetireReturn);
+
+        // Load Average Down State
+        const savedAvgDownCurrentPrice = localStorage.getItem('tool_avg_down_current_price');
+        if (savedAvgDownCurrentPrice) setAvgDownCurrentPrice(savedAvgDownCurrentPrice);
+        const savedAvgDownCurrentLot = localStorage.getItem('tool_avg_down_current_lot');
+        if (savedAvgDownCurrentLot) setAvgDownCurrentLot(savedAvgDownCurrentLot);
+        const savedAvgDownTargetAvg = localStorage.getItem('tool_avg_down_target_avg');
+        if (savedAvgDownTargetAvg) setAvgDownTargetAvg(savedAvgDownTargetAvg);
+
+        // Load Risk Calc State
+        const savedRiskCapital = localStorage.getItem('tool_risk_capital');
+        if (savedRiskCapital) setRiskCapital(savedRiskCapital);
+        const savedRiskPercentage = localStorage.getItem('tool_risk_percentage');
+        if (savedRiskPercentage) setRiskPercentage(savedRiskPercentage);
+    }, []);
+
+    // Save states to localStorage whenever they change
+    useEffect(() => {
+        localStorage.setItem('tool_ara_price', araPrice);
+    }, [araPrice]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_ara_type', araType);
+    }, [araType]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_ara_days', araDays.toString());
+    }, [araDays]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_avg_entries', JSON.stringify(avgEntries));
+    }, [avgEntries]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_target_price', targetPrice);
+    }, [targetPrice]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_avg_down_current_price', avgDownCurrentPrice);
+    }, [avgDownCurrentPrice]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_avg_down_current_lot', avgDownCurrentLot);
+    }, [avgDownCurrentLot]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_avg_down_target_avg', avgDownTargetAvg);
+    }, [avgDownTargetAvg]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_risk_capital', riskCapital);
+    }, [riskCapital]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_risk_percentage', riskPercentage);
+    }, [riskPercentage]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_retire_monthly', retireMonthlyExpense);
+    }, [retireMonthlyExpense]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_retire_inflation', retireInflation);
+    }, [retireInflation]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_retire_years', retireYears);
+    }, [retireYears]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_retire_savings', retireCurrentSavings);
+    }, [retireCurrentSavings]);
+
+    useEffect(() => {
+        localStorage.setItem('tool_retire_return', retireReturn);
+    }, [retireReturn]);
 
     // Helper function to format Rupiah input with thousand separators
     const formatRupiahInput = (value) => {
@@ -135,6 +268,62 @@ function ToolsContent() {
         ]);
         setAvgResult(null);
         setTargetPrice('');
+    };
+
+    // Average Down Planner Functions
+    const handleCalculateAvgDown = () => {
+        const currentPrice = parseFloat(avgDownCurrentPrice);
+        const currentLot = parseFloat(avgDownCurrentLot);
+        const targetAvg = parseFloat(avgDownTargetAvg);
+
+        if (!currentPrice || !currentLot || !targetAvg) {
+            alert('Mohon lengkapi semua data!');
+            return;
+        }
+
+        if (targetAvg >= currentPrice) {
+            alert('Target average harus lebih KECIL dari harga rata-rata saat ini!');
+            return;
+        }
+
+        const results = calculateTargetAverageDown(currentPrice, currentLot, targetAvg);
+        setAvgDownResult(results);
+    };
+
+    const handleResetAvgDown = () => {
+        setAvgDownCurrentPrice('');
+        setAvgDownCurrentLot('');
+        setAvgDownTargetAvg('');
+        setAvgDownResult(null);
+    };
+
+    // Risk & Position Sizing Functions
+    const handleCalculateRisk = () => {
+        const capital = parseFloat(parseRupiahInput(riskCapital));
+        const risk = parseFloat(riskPercentage);
+        const entry = parseFloat(riskEntryPrice);
+        const stopLoss = parseFloat(riskStopLoss);
+
+        if (!capital || !entry || !stopLoss) {
+            alert('Mohon lengkapi data modal, entry, dan stop loss!');
+            return;
+        }
+
+        if (entry <= stopLoss) {
+            alert('Harga Entry harus lebih besar dari Stop Loss (Long Position)!');
+            return;
+        }
+
+        const result = calculatePositionSize(capital, risk, entry, stopLoss);
+        setRiskResult(result);
+    };
+
+    const handleResetRisk = () => {
+        setRiskCapital('');
+        setRiskPercentage('1');
+        setRiskEntryPrice('');
+        setRiskStopLoss('');
+        setRiskResult(null);
     };
 
     // Retirement Fund Calculator Functions
@@ -515,6 +704,197 @@ function ToolsContent() {
                                                 </p>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+
+                    {/* Average Down Planner */}
+                    <div className="card mb-xl animate-slide-up" style={{ animationDelay: '120ms' }}>
+                        <div className="card-header">
+                            <h2 className="card-title">📉 Average Down Planner</h2>
+                        </div>
+                        <div className="card-body">
+                            <p className="text-muted mb-lg" style={{ fontSize: 'var(--font-size-sm)' }}>
+                                Hitung berapa lot yang harus dibeli di harga bawah untuk menurunkan harga rata-rata ke level target.
+                            </p>
+
+                            <div className="grid grid-3 mb-lg">
+                                <div className="form-group">
+                                    <label className="form-label">Avg Price Saat Ini</label>
+                                    <input
+                                        type="number"
+                                        value={avgDownCurrentPrice}
+                                        onChange={(e) => setAvgDownCurrentPrice(e.target.value)}
+                                        placeholder="1000"
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Total Lot Dimiliki</label>
+                                    <input
+                                        type="number"
+                                        value={avgDownCurrentLot}
+                                        onChange={(e) => setAvgDownCurrentLot(e.target.value)}
+                                        placeholder="100"
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Target Avg Price</label>
+                                    <input
+                                        type="number"
+                                        value={avgDownTargetAvg}
+                                        onChange={(e) => setAvgDownTargetAvg(e.target.value)}
+                                        placeholder="800"
+                                        className="form-input"
+                                    />
+                                    <small className="text-muted">Target harus &lt; Avg saat ini</small>
+                                </div>
+                            </div>
+
+                            <div className="form-group flex items-end gap-sm mb-lg">
+                                <button onClick={handleCalculateAvgDown} className="btn btn-primary">
+                                    📉 Hitung Skenario
+                                </button>
+                                <button onClick={handleResetAvgDown} className="btn btn-secondary">
+                                    🔄 Reset
+                                </button>
+                            </div>
+
+                            {avgDownResult && (
+                                <div className="mt-lg">
+                                    <h4 className="mb-md">Skenario Pembelian (Top 10)</h4>
+                                    {avgDownResult.length === 0 ? (
+                                        <p className="text-muted">Tidak ditemukan skenario yang logis dalam rentang lot wajar.</p>
+                                    ) : (
+                                        <div className="table-container">
+                                            <table className="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Beli (Lot)</th>
+                                                        <th>Di Harga (Price)</th>
+                                                        <th>Modal Tambahan</th>
+                                                        <th>Total Lot Akhir</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {avgDownResult.map((res, idx) => (
+                                                        <tr key={idx}>
+                                                            <td className="font-bold text-primary">+{res.lot} lot</td>
+                                                            <td>@{formatRupiah(res.price)}</td>
+                                                            <td>{formatRupiah(res.lot * res.price * 100)}</td>
+                                                            <td>{formatNumber(res.totalLot)} lot</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Risk & Position Sizing Calculator */}
+                    <div className="card mb-xl animate-slide-up" style={{ animationDelay: '140ms' }}>
+                        <div className="card-header">
+                            <h2 className="card-title">🎯 Risk & Position Sizing</h2>
+                        </div>
+                        <div className="card-body">
+                            <p className="text-muted mb-lg" style={{ fontSize: 'var(--font-size-sm)' }}>
+                                Tentukan berapa banyak lot yang boleh dibeli agar risiko tidak melebihi batas toleransi (Money Management).
+                            </p>
+
+                            <div className="grid grid-4 mb-lg">
+                                <div className="form-group">
+                                    <label className="form-label">Modal Trading (Rp)</label>
+                                    <input
+                                        type="text"
+                                        value={riskCapital}
+                                        onChange={handleRupiahChange(setRiskCapital)}
+                                        placeholder="100.000.000"
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Risiko per Trade (%)</label>
+                                    <input
+                                        type="number"
+                                        value={riskPercentage}
+                                        onChange={(e) => setRiskPercentage(e.target.value)}
+                                        placeholder="1"
+                                        step="0.1"
+                                        className="form-input"
+                                    />
+                                    <small className="text-muted">Disarankan 1-2%</small>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Harga Entry</label>
+                                    <input
+                                        type="number"
+                                        value={riskEntryPrice}
+                                        onChange={(e) => setRiskEntryPrice(e.target.value)}
+                                        placeholder="1000"
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Stop Loss</label>
+                                    <input
+                                        type="number"
+                                        value={riskStopLoss}
+                                        onChange={(e) => setRiskStopLoss(e.target.value)}
+                                        placeholder="950"
+                                        className="form-input"
+                                        style={{ borderColor: 'var(--color-danger)' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group flex items-end gap-sm mb-lg">
+                                <button onClick={handleCalculateRisk} className="btn btn-primary">
+                                    🎯 Hitung Posisi
+                                </button>
+                                <button onClick={handleResetRisk} className="btn btn-secondary">
+                                    🔄 Reset
+                                </button>
+                            </div>
+
+                            {riskResult && (
+                                <div className="mt-lg">
+                                    <div className="grid grid-2 gap-lg mb-lg">
+                                        <div className="summary-card" style={{ padding: 'var(--space-md)', background: 'var(--bg-tertiary)' }}>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>Maksimal Beli</p>
+                                            <p className="font-bold text-primary" style={{ fontSize: 'var(--font-size-2xl)' }}>
+                                                {formatNumber(riskResult.maxLots)} Lot
+                                            </p>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-sm)' }}>
+                                                ({formatRupiah(riskResult.positionValue)})
+                                            </p>
+                                        </div>
+                                        <div className="summary-card" style={{ padding: 'var(--space-md)', background: 'var(--color-danger-light)', borderLeft: '4px solid var(--color-danger)' }}>
+                                            <p className="text-muted" style={{ fontSize: 'var(--font-size-xs)' }}>Risiko Penurunan</p>
+                                            <p className="font-bold text-danger" style={{ fontSize: 'var(--font-size-xl)' }}>
+                                                -{formatRupiah(riskResult.projectedLoss)}
+                                            </p>
+                                            <p className="text-danger" style={{ fontSize: 'var(--font-size-sm)' }}>
+                                                {riskPercentage}% dari modal
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <h4 className="mb-sm">Risk : Reward Targets (1:2 Ratio recommended)</h4>
+                                    <div className="grid grid-3 gap-md">
+                                        {riskResult.targets.map((target, idx) => (
+                                            <div key={idx} className="p-md border rounded" style={{ borderColor: idx === 1 ? 'var(--color-success)' : 'var(--border-color)' }}>
+                                                <p className="font-bold mb-xs">{target.ratio}</p>
+                                                <p className="text-lg">TP: {formatRupiah(target.price)}</p>
+                                                <p className="text-success text-sm">+{formatRupiah(target.profit)}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}

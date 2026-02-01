@@ -54,6 +54,23 @@ function IPOTrackerContent() {
         notes: '',
     });
 
+    // Load form data from localStorage on mount
+    useEffect(() => {
+        const savedFormData = localStorage.getItem('ipo_form_data');
+        if (savedFormData) {
+            try {
+                setFormData(JSON.parse(savedFormData));
+            } catch (e) {
+                console.error('Error parsing saved ipo_form_data', e);
+            }
+        }
+    }, []);
+
+    // Save formData to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('ipo_form_data', JSON.stringify(formData));
+    }, [formData]);
+
     useEffect(() => {
         loadIPOData();
     }, [user]);
@@ -157,6 +174,46 @@ function IPOTrackerContent() {
             setIpoList(updatedList);
             setSummary(calculateIPOSummary(updatedList));
         }
+    };
+
+    const handleExportCSV = () => {
+        if (ipoList.length === 0) {
+            alert('Belum ada data untuk diexport!');
+            return;
+        }
+
+        const headers = ['Kode', 'Nama', 'Listing Date', 'IPO Price', 'Lot', 'Status', 'Sell Price', 'Sold Lot', 'Sell Date', 'Total Modal', 'P/L', '%', 'Catatan'];
+        const csvRows = [headers.join(',')];
+
+        ipoList.forEach(ipo => {
+            const result = calculateIPOPL(ipo);
+            const row = [
+                ipo.stockCode,
+                ipo.stockName || '-',
+                formatDate(ipo.listingDate),
+                ipo.ipoPrice,
+                ipo.lotQty,
+                ipo.status,
+                ipo.avgSellPrice || '-',
+                ipo.soldLotQty || '-',
+                ipo.sellDate ? formatDate(ipo.sellDate) : '-',
+                result.ipoValue,
+                result.totalPL,
+                result.plPercentage.toFixed(2) + '%',
+                `"${ipo.notes || ''}"`
+            ];
+            csvRows.push(row.join(','));
+        });
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ipo_tracker_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     };
 
     const resetForm = () => {
@@ -276,11 +333,16 @@ function IPOTrackerContent() {
 
                     {/* IPO List */}
                     <div className="card animate-slide-up" style={{ animationDelay: '700ms' }}>
-                        <div className="card-header">
+                        <div className="card-header flex justify-between items-center">
                             <h2 className="card-title">🚀 Daftar IPO</h2>
-                            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-                                ➕ Tambah IPO
-                            </button>
+                            <div className="flex gap-sm">
+                                <button className="btn btn-secondary btn-sm" onClick={handleExportCSV}>
+                                    📥 Export CSV
+                                </button>
+                                <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                                    ➕ Tambah IPO
+                                </button>
+                            </div>
                         </div>
                         <div className="card-body">
                             {loading ? (
@@ -308,6 +370,7 @@ function IPOTrackerContent() {
                                                 <th>Tanggal Listing</th>
                                                 <th>Harga IPO</th>
                                                 <th>Lot</th>
+                                                <th>Total Modal</th>
                                                 <th>Status</th>
                                                 <th>Harga Sekarang</th>
                                                 <th>P/L</th>
@@ -333,6 +396,7 @@ function IPOTrackerContent() {
                                                         <td>{formatDate(ipo.listingDate)}</td>
                                                         <td>{formatRupiah(ipo.ipoPrice)}</td>
                                                         <td>{ipo.lotQty}</td>
+                                                        <td>{formatRupiah(result.ipoValue)}</td>
                                                         <td>
                                                             {ipo.status === 'hold' && <span className="badge badge-primary">Hold</span>}
                                                             {ipo.status === 'partial' && <span className="badge badge-warning">Partial</span>}
