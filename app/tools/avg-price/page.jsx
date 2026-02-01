@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { calculateWeightedAverage, formatRupiah, formatNumber, formatPercentage } from '../../lib/calculations';
+import Modal from '../../components/Modal';
 
 export default function AvgPricePage() {
     const [avgEntries, setAvgEntries] = useState([
@@ -10,6 +11,10 @@ export default function AvgPricePage() {
     ]);
     const [avgResult, setAvgResult] = useState(null);
     const [targetPrice, setTargetPrice] = useState('');
+
+    // Delete Modal State
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [entryToDelete, setEntryToDelete] = useState(null);
 
     useEffect(() => {
         const savedEntries = localStorage.getItem('tool_avg_entries');
@@ -39,7 +44,16 @@ export default function AvgPricePage() {
 
     const handleRemoveEntry = (id) => {
         if (avgEntries.length <= 1) return;
-        setAvgEntries(avgEntries.filter(e => e.id !== id));
+        setEntryToDelete(id);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = () => {
+        if (entryToDelete) {
+            setAvgEntries(avgEntries.filter(e => e.id !== entryToDelete));
+            setEntryToDelete(null);
+            setShowDeleteModal(false);
+        }
     };
 
     const handleEntryChange = (id, field, value) => {
@@ -214,6 +228,31 @@ export default function AvgPricePage() {
                     </div>
                 </div>
             )}
+
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                title="Konfirmasi Hapus"
+                maxWidth="400px"
+            >
+                <div className="text-center">
+                    <p className="mb-lg">Apakah Anda yakin ingin menghapus baris ini?</p>
+                    <div className="flex gap-md justify-center">
+                        <button
+                            className="btn btn-ghost text-muted"
+                            onClick={() => setShowDeleteModal(false)}
+                        >
+                            Batal
+                        </button>
+                        <button
+                            className="btn btn-danger"
+                            onClick={confirmDelete}
+                        >
+                            Hapus
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

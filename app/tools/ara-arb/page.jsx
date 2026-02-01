@@ -9,6 +9,7 @@ import {
     formatPercentage,
     formatNumber
 } from '../../lib/calculations';
+import Modal from '../../components/Modal';
 
 export default function AraArbPage() {
     const [araPrice, setAraPrice] = useState('');
@@ -17,6 +18,7 @@ export default function AraArbPage() {
     const [araResult, setAraResult] = useState(null);
     const [multiAraResult, setMultiAraResult] = useState(null);
     const [multiArbResult, setMultiArbResult] = useState(null);
+    const [showInfo, setShowInfo] = useState(false);
 
     // Persist state
     useEffect(() => {
@@ -98,9 +100,18 @@ export default function AraArbPage() {
     return (
         <div className="animate-fade-in" style={{ maxWidth: '800px' }}>
             {/* Header */}
-            <div className="mb-lg">
-                <h2 className="mb-xs">📊 Kalkulator ARA/ARB</h2>
-                <p className="text-muted">Simulasi pergerakan batas harga saham (Auto Rejection).</p>
+            <div className="mb-lg flex justify-between items-start">
+                <div>
+                    <h2 className="mb-xs">📊 Kalkulator ARA/ARB</h2>
+                    <p className="text-muted">Simulasi pergerakan batas harga saham sesuai aturan bursa.</p>
+                </div>
+                <button
+                    className="btn btn-sm btn-ghost text-primary"
+                    onClick={() => setShowInfo(true)}
+                    title="Informasi Aturan"
+                >
+                    ℹ️ Info Aturan
+                </button>
             </div>
 
             <div className="card mb-xl border-primary-hover">
@@ -189,6 +200,39 @@ export default function AraArbPage() {
                     </div>
                 </div>
             )}
+
+            <Modal
+                isOpen={showInfo}
+                onClose={() => setShowInfo(false)}
+                title="Aturan Auto Rejection (2025)"
+            >
+                <div className="text-sm">
+                    <p className="mb-md">Berikut adalah aturan batas kenaikan (ARA) dan penurunan (ARB) yang berlaku di Bursa Efek Indonesia:</p>
+
+                    <h4 className="text-primary mb-xs">1. Papan Reguler (Utama/Pengembangan)</h4>
+                    <ul className="list-disc pl-lg mb-lg space-y-xs text-muted">
+                        <li><strong>ARA Berjenjang:</strong>
+                            <ul className="list-circle pl-lg mt-xs">
+                                <li>Harga 50 - 200: Max <strong>+35%</strong></li>
+                                <li>Harga 200 - 5.000: Max <strong>+25%</strong></li>
+                                <li>Harga &gt; 5.000: Max <strong>+20%</strong></li>
+                            </ul>
+                        </li>
+                        <li><strong>ARB Asimetris:</strong> Maksimal <strong>-15%</strong> untuk semua fraksi harga.</li>
+                    </ul>
+
+                    <h4 className="text-warning mb-xs">2. Papan Akselerasi (FCA)</h4>
+                    <ul className="list-disc pl-lg mb-lg space-y-xs text-muted">
+                        <li>Berlaku simetris untuk saham dalam pemantauan khusus.</li>
+                        <li>ARA Maksimal <strong>+10%</strong></li>
+                        <li>ARB Maksimal <strong>-10%</strong></li>
+                    </ul>
+
+                    <div className="bg-tertiary p-md rounded border-l-4 border-info">
+                        <strong>Tips:</strong> Gunakan kalkulator ini untuk memprediksi harga antrian beli (Bid) atau jual (Offer) maksimal di hari berikutnya.
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

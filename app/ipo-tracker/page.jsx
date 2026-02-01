@@ -19,6 +19,7 @@ import {
     updateIPO,
     deleteIPO,
 } from '../lib/storage';
+import Modal from '../components/Modal';
 
 function IPOTrackerContent() {
     const { user, loading: authLoading } = useAuth();
@@ -29,6 +30,11 @@ function IPOTrackerContent() {
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [saving, setSaving] = useState(false);
+
+    // Delete Modal State
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [idToDelete, setIdToDelete] = useState(null);
+
     const [summary, setSummary] = useState({
         totalIPOValue: 0,
         totalCurrentValue: 0,
@@ -157,13 +163,20 @@ function IPOTrackerContent() {
     };
 
     const handleDelete = async (id) => {
-        if (confirm('Apakah Anda yakin ingin menghapus data IPO ini?')) {
-            const result = await deleteIPO(id);
+        setIdToDelete(id);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (idToDelete) {
+            const result = await deleteIPO(idToDelete);
             if (result !== false) {
-                const updatedList = ipoList.filter(i => i.id !== id);
+                const updatedList = ipoList.filter(i => i.id !== idToDelete);
                 setIpoList(updatedList);
                 setSummary(calculateIPOSummary(updatedList));
             }
+            setIdToDelete(null);
+            setShowDeleteModal(false);
         }
     };
 
@@ -640,6 +653,31 @@ function IPOTrackerContent() {
                     </div>
                 </div>
             )}
+            {/* Confirm Delete Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                title="Konfirmasi Hapus"
+                maxWidth="400px"
+            >
+                <div className="text-center">
+                    <p className="mb-lg">Apakah Anda yakin ingin menghapus data IPO ini?</p>
+                    <div className="flex gap-md justify-center">
+                        <button
+                            className="btn btn-ghost text-muted"
+                            onClick={() => setShowDeleteModal(false)}
+                        >
+                            Batal
+                        </button>
+                        <button
+                            className="btn btn-danger"
+                            onClick={confirmDelete}
+                        >
+                            Hapus
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </>
     );
 }

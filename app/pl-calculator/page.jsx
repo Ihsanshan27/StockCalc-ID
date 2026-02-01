@@ -42,6 +42,7 @@ ChartJS.register(
     BarElement,
     Title
 );
+import Modal from '../components/Modal';
 
 function PLCalculatorContent() {
     const { user, loading: authLoading } = useAuth();
@@ -64,6 +65,11 @@ function PLCalculatorContent() {
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [saving, setSaving] = useState(false);
+
+    // Delete Modal State
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [idToDelete, setIdToDelete] = useState(null);
+
     const [formData, setFormData] = useState({
         stockCode: '',
         stockName: '',
@@ -369,13 +375,20 @@ function PLCalculatorContent() {
     };
 
     const handleDelete = async (id) => {
-        if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
-            const result = await deleteTransaction(id);
+        setIdToDelete(id);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (idToDelete) {
+            const result = await deleteTransaction(idToDelete);
             if (result !== false) {
-                const updatedTransactions = transactions.filter(t => t.id !== id);
+                const updatedTransactions = transactions.filter(t => t.id !== idToDelete);
                 setTransactions(updatedTransactions);
                 updateStats(updatedTransactions);
             }
+            setIdToDelete(null);
+            setShowDeleteModal(false);
         }
     };
 
@@ -882,6 +895,31 @@ function PLCalculatorContent() {
                     </div>
                 )
             }
+            {/* Confirm Delete Modal */}
+            <Modal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                title="Konfirmasi Hapus"
+                maxWidth="400px"
+            >
+                <div className="text-center">
+                    <p className="mb-lg">Apakah Anda yakin ingin menghapus transaksi ini?</p>
+                    <div className="flex gap-md justify-center">
+                        <button
+                            className="btn btn-ghost text-muted"
+                            onClick={() => setShowDeleteModal(false)}
+                        >
+                            Batal
+                        </button>
+                        <button
+                            className="btn btn-danger"
+                            onClick={confirmDelete}
+                        >
+                            Hapus
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </>
     );
 }
